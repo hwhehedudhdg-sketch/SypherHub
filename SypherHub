@@ -247,7 +247,7 @@ VisualsTab:CreateSlider({
     Callback = function(Value) Options.HighlightTransparency = Value end,
 })
 
--- Вкладка: Tab Player (виправлено роботу високих стрибків)
+-- Вкладка: Tab Player (як вимагалось)
 local TabPlayer = Window:CreateTab("Tab Player", 4483362458)
 TabPlayer:CreateSection("Характеристики гравця")
 TabPlayer:CreateSlider({
@@ -272,7 +272,6 @@ TabPlayer:CreateSlider({
         Options.JumpPower = Value 
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.UseJumpPower = true -- Увімкнення режиму JumpPower для коректної роботи
             char.Humanoid.JumpPower = Value
         end
     end,
@@ -313,7 +312,7 @@ InfoTab:CreateParagraph({
 })
 InfoTab:CreateParagraph({
     Title = "Що нового у цій версії:",
-    Content = "- Додано Auto Jump та Auto Walk\n- Повністю оновлено Tab Player (виправлено JumpPower)\n- Покращено роботу Aimbot та ESP\n- Виправлено баги з вибором кольорів"
+    Content = "- Додано Auto Jump та Auto Walk\n- Повністю оновлено Tab Player\n- Покращено роботу Aimbot та ESP\n- Виправлено баги з вибором кольорів"
 })
 
 -- ==========================================
@@ -391,7 +390,6 @@ RunService:BindToRenderStep("SypherHub_MainLoop", Enum.RenderPriority.Camera.Val
             humanoid.WalkSpeed = Options.WalkSpeed
         end
         if Options.JumpPower ~= 50 then
-            humanoid.UseJumpPower = true
             humanoid.JumpPower = Options.JumpPower
         end
     end
@@ -467,83 +465,4 @@ RunService:BindToRenderStep("SypherHub_MainLoop", Enum.RenderPriority.Camera.Val
                     
                     local stroke = Instance.new("UIStroke", box)
                     stroke.Name = "Stroke"
-                    stroke.Thickness = 1
-                    
-                    local hb = Instance.new("Frame", espObj)
-                    hb.Name = "Healthbar"
-                    hb.BorderSizePixel = 0
-                    
-                    local hbFill = Instance.new("Frame", hb)
-                    hbFill.Name = "Fill"
-                    hbFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                    hbFill.BorderSizePixel = 0
-                end
-
-                local box = espObj.Box
-                local stroke = box.Stroke
-                local hb = espObj.Healthbar
-                local hbFill = hb.Fill
-
-                local topPos = head.Position + Vector3.new(0, 1.2, 0)
-                local bottomPos = rootPart.Position - Vector3.new(0, 2.8, 0)
-                
-                local topScreen, topOnScreen = Camera:WorldToViewportPoint(topPos)
-                local bottomScreen = Camera:WorldToViewportPoint(bottomPos)
-
-                if topOnScreen and humanoid.Health > 0 then
-                    local height = math.abs(topScreen.Y - bottomScreen.Y)
-                    local width = height * 0.55
-                    
-                    -- Box Налаштування
-                    if Options.ESPBoxes then
-                        box.Visible = true
-                        box.Size = UDim2.new(0, width, 0, height)
-                        box.Position = UDim2.new(0, topScreen.X - width/2, 0, topScreen.Y)
-                        
-                        stroke.Color = Options.BoxColor
-                        
-                        if Options.BoxFill then
-                            box.BackgroundColor3 = Options.FillColor
-                            box.BackgroundTransparency = Options.FillTransparency
-                        else
-                            box.BackgroundTransparency = 1
-                        end
-                    else
-                        box.Visible = false
-                    end
-
-                    -- Healthbar Налаштування
-                    if Options.EnableHealthbar then
-                        hb.Visible = true
-                        hb.Size = UDim2.new(0, 3, 0, height)
-                        hb.Position = UDim2.new(0, topScreen.X - width/2 - 6, 0, topScreen.Y)
-                        hb.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-                        
-                        local hpPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
-                        hbFill.Size = UDim2.new(1, 0, hpPercent, 0)
-                        hbFill.Position = UDim2.new(0, 0, 1 - hpPercent, 0)
-                    else
-                        hb.Visible = false
-                    end
-                else
-                    box.Visible = false
-                    hb.Visible = false
-                end
-            else
-                if char:FindFirstChild("SypherHighlight") then char.SypherHighlight:Destroy() end
-                if head:FindFirstChild("SypherInfo") then head.SypherInfo:Destroy() end
-                local espObj = ESPFolder:FindFirstChild("ESPObj_" .. p.Name)
-                if espObj then espObj:Destroy() end
-            end
-        else
-            local espObj = ESPFolder:FindFirstChild("ESPObj_" .. p.Name)
-            if espObj then espObj:Destroy() end
-        end
-    end
-end)
-
--- Очищення при виході гравців
-Players.PlayerRemoving:Connect(function(p)
-    local espObj = ESPFolder:FindFirstChild("ESPObj_" .. p.Name)
-    if espObj then espObj:Destroy() end
-end)
+                   
