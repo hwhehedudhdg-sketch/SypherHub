@@ -1,0 +1,549 @@
+-- Ініціалізація сервісів
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local Camera = Workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- Завантаження UI Бібліотеки Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Налаштування скрипта
+local Options = {
+    -- Aimbot
+    Aimbot = false,
+    SmoothAim = false,
+    Smoothness = 0.5,
+    ShowFOV = false,
+    FOVRadius = 100,
+    
+    -- ESP Налаштування
+    ESP = false,
+    MaxDistance = 1500,
+    TeamCheck = false,
+    
+    -- Boxes & Colors
+    ESPBoxes = true,
+    BoxColor = Color3.fromRGB(255, 255, 255),
+    
+    BoxFill = false,
+    FillColor = Color3.fromRGB(0, 150, 255),
+    FillTransparency = 0.6,
+    
+    EnableHealthbar = true,
+    NameESP = true,
+    
+    -- Highlight (Chams)
+    EnableHighlight = true,
+    HighlightColor = Color3.fromRGB(0, 150, 255),
+    HighlightTransparency = 0.6,
+    
+    -- Player / Movement
+    WalkSpeed = 16,
+    JumpPower = 50,
+    InfiniteJump = false,
+    Noclip = false,
+    AutoJump = false,
+    AutoWalk = false
+}
+
+-- Створення FOV кола
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Thickness = 1.5
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+
+-- Створення папки для ESP графіки
+local ESPFolder = Instance.new("ScreenGui")
+ESPFolder.Name = "SypherHub_ESP"
+ESPFolder.IgnoreGuiInset = true
+ESPFolder.Parent = CoreGui
+
+-- Перевірка видимості через стіни (для аімбота)
+local function isVisible(targetPart, targetChar)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.IgnoreWater = true
+    
+    local direction = targetPart.Position - Camera.CFrame.Position
+    local result = Workspace:Raycast(Camera.CFrame.Position, direction, rayParams)
+    
+    if result then
+        return result.Instance:IsDescendantOf(targetChar)
+    end
+    return false
+end
+
+-- Пошук найближчого гравця до курсору
+local function getClosestPlayerToCursor()
+    local nearest = nil
+    local minScreenDist = Options.ShowFOV and Options.FOVRadius or math.huge
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            if Options.TeamCheck and p.Team == LocalPlayer.Team then continue end
+            local head = p.Character.Head
+            local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+            
+            if onScreen and isVisible(head, p.Character) then
+                local dist = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                if dist <= minScreenDist then
+                    minScreenDist = dist
+                    nearest = head
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+-- ==========================================
+-- СТВОРЕННЯ МЕНЮ UI (Sypher Hub)
+-- ==========================================
+local Window = Rayfield:CreateWindow({
+    Name = "Sypher Hub | Universal",
+    LoadingTitle = "Sypher Hub Initialization",
+    LoadingSubtitle = "by Sypher_777",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "SypherHubConfig",
+        FileName = "SypherSettings"
+    },
+    Discord = { Enabled = false },
+    KeySystem = true,
+    KeySettings = {
+        Title = "Sypher Hub | Авторизація",
+        Subtitle = "Введіть пароль для доступу",
+        Note = "Пароль: SypherBest",
+        FileName = "SypherKeyAuth",
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {"SypherBest"}
+    }
+})
+
+-- Вкладка: Combat (Аімбот)
+local CombatTab = Window:CreateTab("Combat", 4483362458)
+CombatTab:CreateSection("Aimbot Settings")
+CombatTab:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Callback = function(Value) Options.Aimbot = Value end,
+})
+CombatTab:CreateToggle({
+    Name = "Smooth Aim",
+    CurrentValue = false,
+    Callback = function(Value) Options.SmoothAim = Value end,
+})
+CombatTab:CreateSlider({
+    Name = "Smoothness",
+    Range = {0.1, 1},
+    Increment = 0.1,
+    CurrentValue = 0.5,
+    Callback = function(Value) Options.Smoothness = Value end,
+})
+
+CombatTab:CreateSection("FOV Circle")
+CombatTab:CreateToggle({
+    Name = "Enable FOV",
+    CurrentValue = false,
+    Callback = function(Value) Options.ShowFOV = Value end,
+})
+CombatTab:CreateSlider({
+    Name = "FOV Size",
+    Range = {10, 600},
+    Increment = 10,
+    CurrentValue = 100,
+    Callback = function(Value) Options.FOVRadius = Value end,
+})
+
+-- Вкладка: Visuals (ESP та Кольори)
+local VisualsTab = Window:CreateTab("Visuals", 4483362458)
+
+VisualsTab:CreateSection("General ESP")
+VisualsTab:CreateToggle({
+    Name = "Enable ESP",
+    CurrentValue = false,
+    Callback = function(Value) Options.ESP = Value end,
+})
+VisualsTab:CreateSlider({
+    Name = "Max Distance",
+    Range = {100, 5000},
+    Increment = 50,
+    CurrentValue = 1500,
+    Callback = function(Value) Options.MaxDistance = Value end,
+})
+VisualsTab:CreateToggle({
+    Name = "Team Check",
+    CurrentValue = false,
+    Callback = function(Value) Options.TeamCheck = Value end,
+})
+
+VisualsTab:CreateSection("Box Settings")
+VisualsTab:CreateToggle({
+    Name = "Enable Boxes",
+    CurrentValue = true,
+    Callback = function(Value) Options.ESPBoxes = Value end,
+})
+VisualsTab:CreateColorPicker({
+    Name = "Box Color",
+    Color = Color3.fromRGB(255, 255, 255),
+    Callback = function(Value) Options.BoxColor = Value end,
+})
+
+VisualsTab:CreateSection("Box Fill Settings")
+VisualsTab:CreateToggle({
+    Name = "Box Fill",
+    CurrentValue = false,
+    Callback = function(Value) Options.BoxFill = Value end,
+})
+VisualsTab:CreateColorPicker({
+    Name = "Fill Color",
+    Color = Color3.fromRGB(0, 150, 255),
+    Callback = function(Value) Options.FillColor = Value end,
+})
+VisualsTab:CreateSlider({
+    Name = "Fill Transparency",
+    Range = {0, 1},
+    Increment = 0.05,
+    CurrentValue = 0.6,
+    Callback = function(Value) Options.FillTransparency = Value end,
+})
+
+VisualsTab:CreateSection("Info & Health")
+VisualsTab:CreateToggle({
+    Name = "Enable Healthbar",
+    CurrentValue = true,
+    Callback = function(Value) Options.EnableHealthbar = Value end,
+})
+VisualsTab:CreateToggle({
+    Name = "Name & HP ESP",
+    CurrentValue = true,
+    Callback = function(Value) Options.NameESP = Value end,
+})
+
+VisualsTab:CreateSection("Highlight (Chams)")
+VisualsTab:CreateToggle({
+    Name = "Enable Highlight",
+    CurrentValue = true,
+    Callback = function(Value) Options.EnableHighlight = Value end,
+})
+VisualsTab:CreateColorPicker({
+    Name = "Highlight Color",
+    Color = Color3.fromRGB(0, 150, 255),
+    Callback = function(Value) Options.HighlightColor = Value end,
+})
+VisualsTab:CreateSlider({
+    Name = "Highlight Transparency",
+    Range = {0, 1},
+    Increment = 0.05,
+    CurrentValue = 0.6,
+    Callback = function(Value) Options.HighlightTransparency = Value end,
+})
+
+-- Вкладка: Tab Player (виправлено роботу високих стрибків)
+local TabPlayer = Window:CreateTab("Tab Player", 4483362458)
+TabPlayer:CreateSection("Характеристики гравця")
+TabPlayer:CreateSlider({
+    Name = "Walk Speed",
+    Range = {16, 200},
+    Increment = 1,
+    CurrentValue = 16,
+    Callback = function(Value) 
+        Options.WalkSpeed = Value 
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = Value
+        end
+    end,
+})
+TabPlayer:CreateSlider({
+    Name = "Jump Power",
+    Range = {50, 300},
+    Increment = 5,
+    CurrentValue = 50,
+    Callback = function(Value) 
+        Options.JumpPower = Value 
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.UseJumpPower = true -- Увімкнення режиму JumpPower для коректної роботи
+            char.Humanoid.JumpPower = Value
+        end
+    end,
+})
+
+TabPlayer:CreateSection("Автоматичні функції")
+TabPlayer:CreateToggle({
+    Name = "Auto Jump (Авто стрибок)",
+    CurrentValue = false,
+    Callback = function(Value) Options.AutoJump = Value end,
+})
+TabPlayer:CreateToggle({
+    Name = "Auto Walk (Авто ходьба)",
+    CurrentValue = false,
+    Callback = function(Value) Options.AutoWalk = Value end,
+})
+
+-- Вкладка: Movement (Рух / Додаткові фічі)
+local MovementTab = Window:CreateTab("Movement", 4483362458)
+MovementTab:CreateSection("Character Cheats")
+MovementTab:CreateToggle({
+    Name = "Infinite Jump (Безкінечний стрибок)",
+    CurrentValue = false,
+    Callback = function(Value) Options.InfiniteJump = Value end,
+})
+MovementTab:CreateToggle({
+    Name = "Noclip (Проходження крізь стіни)",
+    CurrentValue = false,
+    Callback = function(Value) Options.Noclip = Value end,
+})
+
+-- Вкладка: Info (Інформація про скрипт та розробника)
+local InfoTab = Window:CreateTab("Info", 4483362458)
+InfoTab:CreateSection("Про скрипт")
+InfoTab:CreateParagraph({
+    Title = "SYPHER HUB v2.0",
+    Content = "Добро пожловать в Sypher Hub!\n\nРазработчик: Sypher_777\nВерсия: 2.0.0\nСтатус: Активний / Працює"
+})
+InfoTab:CreateParagraph({
+    Title = "Що нового у цій версії:",
+    Content = "- Додано Auto Jump та Auto Walk\n- Повністю оновлено Tab Player (виправлено JumpPower)\n- Покращено роботу Aimbot та ESP\n- Виправлено баги з вибором кольорів"
+})
+
+-- ==========================================
+-- ЛОГІКА РУХУ ТА АВТО-ФУНКЦІЙ
+-- ==========================================
+UserInputService.JumpRequest:Connect(function()
+    if Options.InfiniteJump then
+        local character = LocalPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    local character = LocalPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        
+        -- Noclip
+        if Options.Noclip then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+        
+        -- Auto Jump
+        if Options.AutoJump and humanoid then
+            if humanoid.FloorMaterial ~= Enum.Material.Air then
+                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+        
+        -- Auto Walk
+        if Options.AutoWalk and humanoid then
+            humanoid:Move(Vector3.new(0, 0, -1), true)
+        end
+    end
+end)
+
+-- ==========================================
+-- ГОЛОВНИЙ ЦИКЛ (Оптимізований)
+-- ==========================================
+RunService:BindToRenderStep("SypherHub_MainLoop", Enum.RenderPriority.Camera.Value + 1, function()
+    -- FOV Коло
+    if FOVCircle then
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        FOVCircle.Radius = Options.FOVRadius
+        FOVCircle.Visible = Options.ShowFOV
+    end
+
+    -- Аімбот
+    if Options.Aimbot then
+        local targetHead = getClosestPlayerToCursor()
+        if targetHead then
+            local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, targetHead.Position)
+            if Options.SmoothAim then
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Options.Smoothness)
+            else
+                Camera.CFrame = targetCFrame
+            end
+        end
+    end
+    
+    -- Підтримка швидкості та стрибка з Tab Player
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("Humanoid") then
+        local humanoid = character.Humanoid
+        if Options.WalkSpeed ~= 16 then
+            humanoid.WalkSpeed = Options.WalkSpeed
+        end
+        if Options.JumpPower ~= 50 then
+            humanoid.UseJumpPower = true
+            humanoid.JumpPower = Options.JumpPower
+        end
+    end
+
+    -- ESP Цикл
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character:FindFirstChild("Head") then
+            local char = p.Character
+            local head = char.Head
+            local humanoid = char.Humanoid
+            local rootPart = char:FindFirstChild("HumanoidRootPart") or head
+            
+            local distFromCam = (Camera.CFrame.Position - rootPart.Position).Magnitude
+            
+            if Options.ESP and distFromCam <= Options.MaxDistance and (not Options.TeamCheck or p.Team ~= LocalPlayer.Team) then
+                -- 1. Highlight (Chams)
+                local hl = char:FindFirstChild("SypherHighlight")
+                if Options.EnableHighlight then
+                    if not hl then
+                        hl = Instance.new("Highlight")
+                        hl.Name = "SypherHighlight"
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent = char
+                    end
+                    hl.FillColor = Options.HighlightColor
+                    hl.OutlineColor = Options.HighlightColor
+                    hl.FillTransparency = Options.HighlightTransparency
+                    hl.OutlineTransparency = 0
+                    hl.Enabled = humanoid.Health > 0
+                elseif hl then
+                    hl:Destroy()
+                end
+
+                -- 2. Name & HP Text
+                local bg = head:FindFirstChild("SypherInfo")
+                if not bg and Options.NameESP then
+                    bg = Instance.new("BillboardGui")
+                    bg.Name = "SypherInfo"
+                    bg.Size = UDim2.new(0, 120, 0, 30)
+                    bg.StudsOffset = Vector3.new(0, 2.5, 0)
+                    bg.AlwaysOnTop = true
+                    bg.Parent = head
+                    
+                    local nameLbl = Instance.new("TextLabel", bg)
+                    nameLbl.Name = "NameLabel"
+                    nameLbl.Size = UDim2.new(1, 0, 1, 0)
+                    nameLbl.BackgroundTransparency = 1
+                    nameLbl.Font = Enum.Font.GothamBold
+                    nameLbl.TextSize = 12
+                    nameLbl.TextStrokeTransparency = 0
+                end
+                
+                local nameLbl = bg and bg:FindFirstChild("NameLabel")
+                if nameLbl and Options.NameESP then
+                    local currentHp = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
+                    nameLbl.Text = "[" .. currentHp .. "%] " .. p.Name
+                    nameLbl.TextColor3 = Options.BoxColor
+                    bg.Enabled = humanoid.Health > 0
+                elseif bg then
+                    bg.Enabled = false
+                end
+
+                -- 3. Box та Healthbar
+                local espObj = ESPFolder:FindFirstChild("ESPObj_" .. p.Name)
+                if not espObj then
+                    espObj = Instance.new("Folder")
+                    espObj.Name = "ESPObj_" .. p.Name
+                    espObj.Parent = ESPFolder
+                    
+                    local box = Instance.new("Frame", espObj)
+                    box.Name = "Box"
+                    box.BorderSizePixel = 0
+                    
+                    local stroke = Instance.new("UIStroke", box)
+                    stroke.Name = "Stroke"
+                    stroke.Thickness = 1
+                    
+                    local hb = Instance.new("Frame", espObj)
+                    hb.Name = "Healthbar"
+                    hb.BorderSizePixel = 0
+                    
+                    local hbFill = Instance.new("Frame", hb)
+                    hbFill.Name = "Fill"
+                    hbFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                    hbFill.BorderSizePixel = 0
+                end
+
+                local box = espObj.Box
+                local stroke = box.Stroke
+                local hb = espObj.Healthbar
+                local hbFill = hb.Fill
+
+                local topPos = head.Position + Vector3.new(0, 1.2, 0)
+                local bottomPos = rootPart.Position - Vector3.new(0, 2.8, 0)
+                
+                local topScreen, topOnScreen = Camera:WorldToViewportPoint(topPos)
+                local bottomScreen = Camera:WorldToViewportPoint(bottomPos)
+
+                if topOnScreen and humanoid.Health > 0 then
+                    local height = math.abs(topScreen.Y - bottomScreen.Y)
+                    local width = height * 0.55
+                    
+                    -- Box Налаштування
+                    if Options.ESPBoxes then
+                        box.Visible = true
+                        box.Size = UDim2.new(0, width, 0, height)
+                        box.Position = UDim2.new(0, topScreen.X - width/2, 0, topScreen.Y)
+                        
+                        stroke.Color = Options.BoxColor
+                        
+                        if Options.BoxFill then
+                            box.BackgroundColor3 = Options.FillColor
+                            box.BackgroundTransparency = Options.FillTransparency
+                        else
+                            box.BackgroundTransparency = 1
+                        end
+                    else
+                        box.Visible = false
+                    end
+
+                    -- Healthbar Налаштування
+                    if Options.EnableHealthbar then
+                        hb.Visible = true
+                        hb.Size = UDim2.new(0, 3, 0, height)
+                        hb.Position = UDim2.new(0, topScreen.X - width/2 - 6, 0, topScreen.Y)
+                        hb.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                        
+                        local hpPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                        hbFill.Size = UDim2.new(1, 0, hpPercent, 0)
+                        hbFill.Position = UDim2.new(0, 0, 1 - hpPercent, 0)
+                    else
+                        hb.Visible = false
+                    end
+                else
+                    box.Visible = false
+                    hb.Visible = false
+                end
+            else
+                if char:FindFirstChild("SypherHighlight") then char.SypherHighlight:Destroy() end
+                if head:FindFirstChild("SypherInfo") then head.SypherInfo:Destroy() end
+                local espObj = ESPFolder:FindFirstChild("ESPObj_" .. p.Name)
+                if espObj then espObj:Destroy() end
+            end
+        else
+            local espObj = ESPFolder:FindFirstChild("ESPObj_" .. p.Name)
+            if espObj then espObj:Destroy() end
+        end
+    end
+end)
+
+-- Очищення при виході гравців
+Players.PlayerRemoving:Connect(function(p)
+    local espObj = ESPFolder:FindFirstChild("ESPObj_" .. p.Name)
+    if espObj then espObj:Destroy() end
+end)
